@@ -1,0 +1,1289 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8" />
+<title>Kalenderblatt</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="description" content="Ein ruhiger, übersichtlicher Kalender." />
+
+<link rel="manifest" href="manifest.webmanifest" />
+<meta name="theme-color" content="#f2f2ef" media="(prefers-color-scheme: light)" />
+<meta name="theme-color" content="#151619" media="(prefers-color-scheme: dark)" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="default" />
+<meta name="apple-mobile-web-app-title" content="Kalender" />
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png" />
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png" />
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..48,600;12..48,700&family=Instrument+Sans:wght@400;500;600&display=swap" />
+
+<style>
+  /* ============ TOKENS ============ */
+  :root {
+    --bg: #f2f2ef;
+    --surface: #ffffff;
+    --surface-2: #f9f8f6;
+    --line: #e5e3dd;
+    --line-strong: #d3d0c8;
+    --text: #24241f;
+    --text-muted: #77746c;
+    --text-faint: #a8a59c;
+    --accent: #1f5f59;
+    --accent-soft: rgba(31, 95, 89, 0.12);
+    --accent-ink: #ffffff;
+    --danger: #b5473f;
+    --shadow: 0 10px 40px -12px rgba(30, 28, 22, 0.28);
+    --shadow-sm: 0 2px 10px -4px rgba(30, 28, 22, 0.18);
+
+    --cat-1: #3b7dd8;
+    --cat-2: #4ca56b;
+    --cat-3: #df8f36;
+    --cat-4: #c05f7c;
+    --cat-5: #7c6fc6;
+    --cat-6: #7f8b98;
+
+    --r-lg: 20px;
+    --r-md: 13px;
+    --r-sm: 9px;
+    --font-display: "Bricolage Grotesque", "Instrument Sans", system-ui, sans-serif;
+    --font-ui: "Instrument Sans", system-ui, -apple-system, sans-serif;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #151619;
+      --surface: #1e2024;
+      --surface-2: #25272c;
+      --line: #2e3137;
+      --line-strong: #3c404799;
+      --text: #e9e9e6;
+      --text-muted: #9b9b96;
+      --text-faint: #6b6b66;
+      --accent: #4fb6a6;
+      --accent-soft: rgba(79, 182, 166, 0.16);
+      --accent-ink: #0f302c;
+      --danger: #e0736b;
+      --shadow: 0 14px 44px -12px rgba(0, 0, 0, 0.6);
+      --shadow-sm: 0 2px 12px -4px rgba(0, 0, 0, 0.5);
+      --cat-1: #5b95e0;
+      --cat-2: #5cb87c;
+      --cat-3: #e6a052;
+      --cat-4: #d1789a;
+      --cat-5: #9789d6;
+      --cat-6: #93a0ad;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #151619;
+    --surface: #1e2024;
+    --surface-2: #25272c;
+    --line: #2e3137;
+    --line-strong: #3c404799;
+    --text: #e9e9e6;
+    --text-muted: #9b9b96;
+    --text-faint: #6b6b66;
+    --accent: #4fb6a6;
+    --accent-soft: rgba(79, 182, 166, 0.16);
+    --accent-ink: #0f302c;
+    --danger: #e0736b;
+    --shadow: 0 14px 44px -12px rgba(0, 0, 0, 0.6);
+    --shadow-sm: 0 2px 12px -4px rgba(0, 0, 0, 0.5);
+    --cat-1: #5b95e0;
+    --cat-2: #5cb87c;
+    --cat-3: #e6a052;
+    --cat-4: #d1789a;
+    --cat-5: #9789d6;
+    --cat-6: #93a0ad;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-ui);
+    font-size: 15px;
+    line-height: 1.45;
+    -webkit-font-smoothing: antialiased;
+    overscroll-behavior-y: none;
+  }
+  button { font: inherit; color: inherit; background: none; border: none; cursor: pointer; }
+  input, select, textarea { font: inherit; color: inherit; }
+  ::selection { background: var(--accent-soft); }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+  }
+
+  /* ============ SHELL ============ */
+  .app {
+    max-width: 560px;
+    margin: 0 auto;
+    min-height: 100%;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg);
+    padding: max(env(safe-area-inset-top), 8px) 0 0;
+  }
+
+  header {
+    padding: 6px 18px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .titlebar {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+  }
+  .month-title {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: clamp(1.6rem, 7vw, 2rem);
+    letter-spacing: -0.02em;
+    text-wrap: balance;
+  }
+  .month-title span { color: var(--text-faint); font-weight: 600; }
+  .icon-btn {
+    width: 38px; height: 38px;
+    display: grid; place-items: center;
+    border-radius: 50%;
+    color: var(--text-muted);
+    transition: background 0.15s, color 0.15s;
+    flex: none;
+  }
+  .icon-btn:hover { background: var(--surface-2); color: var(--text); }
+  .icon-btn:active { transform: scale(0.92); }
+  .icon-btn svg { width: 21px; height: 21px; }
+
+  .controls { display: flex; align-items: center; gap: 8px; }
+  .nav-group { display: flex; align-items: center; gap: 2px; }
+  .nav-group .icon-btn { width: 34px; height: 34px; }
+  .today-btn {
+    padding: 7px 14px;
+    border-radius: 999px;
+    border: 1px solid var(--line-strong);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-muted);
+    transition: border-color 0.15s, color 0.15s;
+  }
+  .today-btn:hover { color: var(--text); border-color: var(--text-muted); }
+
+  .segmented {
+    margin-left: auto;
+    display: flex;
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 3px;
+  }
+  .segmented button {
+    padding: 6px 15px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-muted);
+    transition: color 0.15s;
+  }
+  .segmented button[aria-pressed="true"] {
+    background: var(--surface);
+    color: var(--text);
+    box-shadow: var(--shadow-sm);
+  }
+
+  /* ============ REMINDER BANNERS ============ */
+  .banners { padding: 0 14px; display: flex; flex-direction: column; gap: 8px; }
+  .banners:not(:empty) { margin-bottom: 10px; }
+  .banner {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-left: 4px solid var(--accent);
+    border-radius: var(--r-md);
+    padding: 11px 12px;
+    box-shadow: var(--shadow-sm);
+    animation: slidein 0.28s cubic-bezier(0.2, 0.7, 0.2, 1);
+  }
+  @keyframes slidein { from { opacity: 0; transform: translateY(-8px); } }
+  .banner .bell { font-size: 17px; flex: none; }
+  .banner .b-text { flex: 1; min-width: 0; font-size: 13.5px; }
+  .banner .b-text strong { display: block; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .banner .b-text span { color: var(--text-muted); font-size: 12.5px; }
+  .banner .b-close { color: var(--text-faint); padding: 4px; font-size: 15px; flex: none; }
+
+  /* ============ MONTH GRID ============ */
+  .surface-card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--r-lg);
+    margin: 0 12px;
+    overflow: hidden;
+  }
+  .weekdays {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    border-bottom: 1px solid var(--line);
+  }
+  .weekdays div {
+    text-align: center;
+    padding: 10px 0 8px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+  }
+  .weekdays div.we { color: var(--accent); opacity: 0.75; }
+
+  .grid { display: grid; grid-template-columns: repeat(7, 1fr); touch-action: pan-y; }
+  .cell {
+    position: relative;
+    aspect-ratio: 1 / 1.12;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding-top: 7px;
+    gap: 4px;
+    border-right: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+    transition: background 0.12s;
+  }
+  .cell:nth-child(7n) { border-right: none; }
+  .grid .cell:nth-last-child(-n + 7) { border-bottom: none; }
+  .cell:active { background: var(--surface-2); }
+  .cell .num {
+    font-size: 13.5px;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    width: 27px; height: 27px;
+    display: grid; place-items: center;
+    border-radius: 50%;
+    color: var(--text);
+  }
+  .cell.out .num { color: var(--text-faint); }
+  .cell.today .num { color: var(--accent); font-weight: 700; }
+  .cell.sel .num { background: var(--accent); color: var(--accent-ink); font-weight: 600; }
+  .cell.sel.today .num { color: var(--accent-ink); }
+  .dots { display: flex; gap: 3px; flex-wrap: wrap; justify-content: center; max-width: 80%; }
+  .dot { width: 5px; height: 5px; border-radius: 50%; background: var(--d, var(--cat-6)); }
+  .cell .more { font-size: 9px; color: var(--text-faint); font-weight: 600; line-height: 1; }
+
+  /* ============ AGENDA ============ */
+  .agenda { flex: 1; padding: 18px 16px 130px; }
+  .agenda-day + .agenda-day { margin-top: 22px; }
+  .agenda-head {
+    display: flex; align-items: baseline; gap: 9px;
+    margin-bottom: 11px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--line);
+  }
+  .agenda-head h2 {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 1.06rem;
+    letter-spacing: -0.01em;
+  }
+  .agenda-head .wd { color: var(--text-muted); font-size: 13px; font-weight: 500; }
+  .agenda-head.is-today h2 { color: var(--accent); }
+
+  .ev {
+    display: flex;
+    gap: 12px;
+    padding: 12px 13px;
+    border-radius: var(--r-md);
+    background: var(--surface);
+    border: 1px solid var(--line);
+    margin-bottom: 8px;
+    transition: transform 0.12s, border-color 0.15s;
+    align-items: flex-start;
+  }
+  .ev:active { transform: scale(0.985); border-color: var(--line-strong); }
+  .ev .stripe { width: 4px; align-self: stretch; border-radius: 4px; background: var(--d); flex: none; min-height: 34px; }
+  .ev .ev-body { flex: 1; min-width: 0; }
+  .ev .ev-title { font-weight: 600; font-size: 14.5px; }
+  .ev .ev-title.done { text-decoration: line-through; color: var(--text-muted); }
+  .ev .ev-meta { color: var(--text-muted); font-size: 12.5px; margin-top: 2px; display: flex; flex-wrap: wrap; gap: 4px 9px; align-items: center; }
+  .ev .ev-meta .rem { display: inline-flex; align-items: center; gap: 3px; }
+  .ev .ev-note { color: var(--text-faint); font-size: 12.5px; margin-top: 4px; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .ev .cat-tag { font-size: 11px; font-weight: 600; color: var(--d); }
+  .ev .ev-time { font-variant-numeric: tabular-nums; font-weight: 600; font-size: 13px; color: var(--text); flex: none; text-align: right; min-width: 42px; }
+  .ev .ev-time small { display: block; font-weight: 500; color: var(--text-faint); font-size: 11px; }
+
+  .empty-day { color: var(--text-faint); font-size: 13.5px; padding: 6px 2px; font-style: italic; }
+
+  /* ============ FAB ============ */
+  .fab {
+    position: fixed;
+    right: max(env(safe-area-inset-right), 18px);
+    bottom: max(env(safe-area-inset-bottom), 22px);
+    width: 58px; height: 58px;
+    border-radius: 20px;
+    background: var(--accent);
+    color: var(--accent-ink);
+    display: grid; place-items: center;
+    box-shadow: var(--shadow);
+    transition: transform 0.14s;
+    z-index: 20;
+  }
+  .app { position: relative; }
+  @media (min-width: 592px) { .fab { right: calc(50% - 280px + 18px); } }
+  .fab:active { transform: scale(0.9); }
+  .fab svg { width: 26px; height: 26px; }
+
+  /* ============ MODAL / SHEET ============ */
+  .overlay {
+    position: fixed; inset: 0;
+    background: rgba(20, 18, 14, 0.42);
+    backdrop-filter: blur(2px);
+    display: flex; align-items: flex-end; justify-content: center;
+    z-index: 50;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity 0.22s, visibility 0.22s;
+  }
+  .overlay.show { opacity: 1; visibility: visible; pointer-events: auto; }
+  .sheet {
+    background: var(--surface);
+    width: 100%;
+    max-width: 560px;
+    border-radius: 22px 22px 0 0;
+    padding: 8px 20px calc(24px + env(safe-area-inset-bottom));
+    max-height: 92vh;
+    overflow-y: auto;
+    transform: translateY(100%);
+    transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+    box-shadow: var(--shadow);
+  }
+  .overlay.show .sheet { transform: translateY(0); }
+  @media (min-width: 592px) {
+    .overlay { align-items: center; }
+    .sheet { border-radius: 22px; max-height: 88vh; transform: translateY(16px) scale(0.98); }
+    .overlay.show .sheet { transform: none; }
+  }
+  .grabber { width: 38px; height: 4px; border-radius: 4px; background: var(--line-strong); margin: 6px auto 14px; }
+
+  .sheet h3 {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 1.2rem;
+    margin-bottom: 16px;
+    letter-spacing: -0.01em;
+  }
+  .field { margin-bottom: 15px; }
+  .field > label {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+    margin-bottom: 6px;
+  }
+  .field input[type="text"],
+  .field input[type="date"],
+  .field input[type="time"],
+  .field select,
+  .field textarea {
+    width: 100%;
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: var(--r-sm);
+    padding: 11px 12px;
+    font-size: 16px;
+    transition: border-color 0.15s;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+  .field input:focus, .field select:focus, .field textarea:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+  .field textarea { resize: vertical; min-height: 62px; }
+  .field.title-field input { font-size: 17px; font-weight: 600; }
+  .row2 { display: flex; gap: 10px; }
+  .row2 .field { flex: 1; }
+
+  .toggle-row {
+    display: flex; align-items: center; justify-content: space-between;
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: var(--r-sm);
+    padding: 10px 12px;
+  }
+  .toggle-row label { font-weight: 500; font-size: 14.5px; }
+  .switch { position: relative; width: 46px; height: 27px; flex: none; }
+  .switch input { opacity: 0; width: 100%; height: 100%; }
+  .switch .track {
+    position: absolute; inset: 0;
+    background: var(--line-strong);
+    border-radius: 999px;
+    transition: background 0.18s;
+  }
+  .switch .track::after {
+    content: "";
+    position: absolute; top: 3px; left: 3px;
+    width: 21px; height: 21px;
+    background: #fff;
+    border-radius: 50%;
+    transition: transform 0.18s;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+  }
+  .switch input:checked + .track { background: var(--accent); }
+  .switch input:checked + .track::after { transform: translateX(19px); }
+
+  .cat-picker { display: flex; flex-wrap: wrap; gap: 7px; }
+  .cat-chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 7px 12px;
+    border-radius: 999px;
+    border: 1.5px solid var(--line);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-muted);
+    transition: border-color 0.15s, color 0.15s, background 0.15s;
+  }
+  .cat-chip .sw { width: 10px; height: 10px; border-radius: 50%; background: var(--d); }
+  .cat-chip[aria-pressed="true"] { border-color: var(--d); color: var(--text); background: color-mix(in srgb, var(--d) 10%, transparent); }
+
+  .sheet-actions { display: flex; gap: 10px; margin-top: 22px; }
+  .btn {
+    flex: 1;
+    padding: 13px;
+    border-radius: var(--r-sm);
+    font-weight: 600;
+    font-size: 15px;
+    text-align: center;
+    transition: transform 0.12s, opacity 0.15s;
+  }
+  .btn:active { transform: scale(0.97); }
+  .btn-primary { background: var(--accent); color: var(--accent-ink); }
+  .btn-ghost { background: var(--surface-2); border: 1px solid var(--line); color: var(--text-muted); }
+  .btn-danger-text { flex: none; padding: 13px 14px; color: var(--danger); font-weight: 600; }
+
+  /* settings specifics */
+  .set-group { margin-bottom: 24px; }
+  .set-group > .gl {
+    font-size: 12px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase;
+    color: var(--text-faint); margin-bottom: 10px;
+  }
+  .set-line {
+    display: flex; align-items: center; gap: 12px;
+    padding: 11px 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .set-line:last-child { border-bottom: none; }
+  .set-line .sl-main { flex: 1; min-width: 0; }
+  .set-line .sl-main .t { font-weight: 500; font-size: 14.5px; }
+  .set-line .sl-main .d { color: var(--text-faint); font-size: 12.5px; margin-top: 2px; }
+  .set-line input[type="text"] {
+    background: var(--surface-2); border: 1px solid var(--line);
+    border-radius: var(--r-sm); padding: 8px 10px; font-size: 16px; width: 150px;
+  }
+  .cat-dot { width: 14px; height: 14px; border-radius: 50%; flex: none; }
+  .mini-btn {
+    padding: 8px 13px; border-radius: 999px; font-size: 13px; font-weight: 600;
+    border: 1px solid var(--line-strong); color: var(--text-muted);
+  }
+  .mini-btn.on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  .seg-mini { display: flex; border: 1px solid var(--line); border-radius: 999px; padding: 3px; background: var(--surface-2); }
+  .seg-mini button { padding: 6px 12px; border-radius: 999px; font-size: 12.5px; font-weight: 600; color: var(--text-muted); }
+  .seg-mini button[aria-pressed="true"] { background: var(--surface); color: var(--text); box-shadow: var(--shadow-sm); }
+
+  .hint {
+    background: var(--accent-soft);
+    border-radius: var(--r-sm);
+    padding: 11px 13px;
+    font-size: 12.5px;
+    color: var(--text-muted);
+    line-height: 1.5;
+  }
+  .hint b { color: var(--text); font-weight: 600; }
+
+  /* toast */
+  .toast {
+    position: fixed;
+    left: 50%; bottom: 26px;
+    transform: translate(-50%, 20px);
+    background: var(--text);
+    color: var(--bg);
+    padding: 11px 18px;
+    border-radius: 999px;
+    font-size: 13.5px;
+    font-weight: 500;
+    box-shadow: var(--shadow);
+    opacity: 0;
+    transition: opacity 0.22s, transform 0.22s;
+    z-index: 90;
+    pointer-events: none;
+    max-width: 90vw;
+    text-align: center;
+  }
+  .toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+  .week-wrap { padding: 4px 12px 0; }
+</style>
+</head>
+<body>
+
+<div class="app" id="app">
+  <header>
+    <div class="titlebar">
+      <div class="month-title" id="monthTitle">—</div>
+      <button class="icon-btn" id="settingsBtn" aria-label="Einstellungen">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      </button>
+    </div>
+    <div class="controls">
+      <div class="nav-group">
+        <button class="icon-btn" id="prevBtn" aria-label="Zurück">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+        </button>
+        <button class="icon-btn" id="nextBtn" aria-label="Weiter">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+        </button>
+      </div>
+      <button class="today-btn" id="todayBtn">Heute</button>
+      <div class="segmented" role="group" aria-label="Ansicht">
+        <button id="viewMonth" aria-pressed="true">Monat</button>
+        <button id="viewWeek" aria-pressed="false">Woche</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="banners" id="banners"></div>
+
+  <div id="viewRoot"></div>
+
+  <button class="fab" id="fab" aria-label="Neuer Eintrag">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+  </button>
+</div>
+
+<div class="overlay" id="overlay" aria-hidden="true"><div class="sheet" id="sheet" role="dialog" aria-modal="true"></div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+(function () {
+  "use strict";
+
+  var STORE_KEY = "kalenderblatt.v1";
+  var WD_SHORT = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"];
+  var WD_LONG = ["Sonntag", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag"];
+  var MONTHS = ["Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November", "Dezember"];
+
+  var DEFAULT_CATS = [
+    { id: "c1", name: "Arbeit", color: "var(--cat-1)" },
+    { id: "c2", name: "Privat", color: "var(--cat-2)" },
+    { id: "c3", name: "Familie", color: "var(--cat-3)" },
+    { id: "c4", name: "Sport", color: "var(--cat-4)" },
+    { id: "c5", name: "Gesundheit", color: "var(--cat-5)" },
+    { id: "c6", name: "Sonstiges", color: "var(--cat-6)" }
+  ];
+
+  var REMIND_TIMED = [
+    { v: "none", t: "Keine Erinnerung" },
+    { v: "start", t: "Zur Startzeit" },
+    { v: "10m", t: "10 Minuten vorher" },
+    { v: "30m", t: "30 Minuten vorher" },
+    { v: "1h", t: "1 Stunde vorher" },
+    { v: "1d", t: "1 Tag vorher" }
+  ];
+  var REMIND_ALLDAY = [
+    { v: "none", t: "Keine Erinnerung" },
+    { v: "morning", t: "Am Morgen (08:00)" },
+    { v: "eve_before", t: "Abend davor (18:00)" }
+  ];
+
+  // ---------- state ----------
+  var state = load();
+  var ui = {
+    view: "month",
+    cursor: startOfMonth(new Date()),
+    selected: ymd(new Date()),
+    weekStart: startOfWeek(new Date(), state.settings.weekStart)
+  };
+  var dueBanners = [];
+  var lastFocus = null;
+
+  function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+
+  function load() {
+    var base = { events: [], categories: DEFAULT_CATS.slice(), settings: { weekStart: 1, theme: "auto", notifyEnabled: false, notified: [] }, seeded: false };
+    try {
+      var raw = localStorage.getItem(STORE_KEY);
+      if (raw) {
+        var p = JSON.parse(raw);
+        base.events = Array.isArray(p.events) ? p.events : [];
+        base.categories = Array.isArray(p.categories) && p.categories.length ? p.categories : DEFAULT_CATS.slice();
+        base.settings = Object.assign(base.settings, p.settings || {});
+        base.seeded = !!p.seeded;
+      }
+    } catch (e) {}
+    if (!base.settings.notified) base.settings.notified = [];
+    if (!base.seeded && base.events.length === 0) {
+      var t = new Date();
+      var tm = new Date(); tm.setDate(tm.getDate() + 1);
+      base.events.push(
+        { id: uid(), title: "Willkommen 👋 – tippe auf einen Eintrag zum Bearbeiten", date: ymd(t), allDay: true, start: null, end: null, cat: "c2", note: "Mit dem + unten rechts legst du neue Einträge an. Über das Zahnrad kannst du Kategorien umbenennen und ein Backup machen.", reminder: "none" },
+        { id: uid(), title: "Beispiel: Zahnarzt", date: ymd(tm), allDay: false, start: "09:30", end: "10:15", cat: "c5", note: "", reminder: "1h" }
+      );
+      base.seeded = true;
+    }
+    return base;
+  }
+
+  function save() {
+    try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch (e) {}
+  }
+
+  // ---------- date helpers ----------
+  function pad(n) { return n < 10 ? "0" + n : "" + n; }
+  function ymd(d) { return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()); }
+  function parseYmd(s) { var a = s.split("-"); return new Date(+a[0], +a[1] - 1, +a[2]); }
+  function startOfMonth(d) { return new Date(d.getFullYear(), d.getMonth(), 1); }
+  function addDays(d, n) { var x = new Date(d); x.setDate(x.getDate() + n); return x; }
+  function addMonths(d, n) { return new Date(d.getFullYear(), d.getMonth() + n, 1); }
+  function startOfWeek(d, ws) {
+    var x = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    var diff = (x.getDay() - ws + 7) % 7;
+    x.setDate(x.getDate() - diff);
+    return x;
+  }
+  function isToday(s) { return s === ymd(new Date()); }
+
+  function orderedWeekdays() {
+    var ws = state.settings.weekStart, out = [];
+    for (var i = 0; i < 7; i++) out.push((ws + i) % 7);
+    return out;
+  }
+
+  // ---------- event helpers ----------
+  function eventsOn(dateStr) {
+    return state.events.filter(function (e) { return e.date === dateStr; }).sort(function (a, b) {
+      if (a.allDay && !b.allDay) return -1;
+      if (!a.allDay && b.allDay) return 1;
+      return (a.start || "") < (b.start || "") ? -1 : (a.start || "") > (b.start || "") ? 1 : 0;
+    });
+  }
+  function catOf(id) {
+    for (var i = 0; i < state.categories.length; i++) if (state.categories[i].id === id) return state.categories[i];
+    return state.categories[state.categories.length - 1];
+  }
+  function remindLabel(code) {
+    var all = REMIND_TIMED.concat(REMIND_ALLDAY);
+    for (var i = 0; i < all.length; i++) if (all[i].v === code) return all[i].t;
+    return "";
+  }
+
+  function remindAt(ev) {
+    if (!ev.reminder || ev.reminder === "none") return null;
+    var d = parseYmd(ev.date);
+    if (ev.allDay) {
+      if (ev.reminder === "morning") { d.setHours(8, 0, 0, 0); return d; }
+      if (ev.reminder === "eve_before") { d.setDate(d.getDate() - 1); d.setHours(18, 0, 0, 0); return d; }
+      return null;
+    }
+    var hm = (ev.start || "09:00").split(":");
+    d.setHours(+hm[0], +hm[1], 0, 0);
+    var off = { start: 0, "10m": 10, "30m": 30, "1h": 60, "1d": 1440 }[ev.reminder];
+    if (off == null) return null;
+    return new Date(d.getTime() - off * 60000);
+  }
+  function notifyKey(ev) {
+    return ev.id + "|" + ev.date + "|" + ev.reminder + "|" + (ev.allDay ? "A" : (ev.start || ""));
+  }
+
+  // ---------- reminders ----------
+  function checkReminders() {
+    var now = Date.now();
+    var changed = false;
+    state.events.forEach(function (ev) {
+      var at = remindAt(ev);
+      if (!at) return;
+      var k = notifyKey(ev);
+      if (state.settings.notified.indexOf(k) !== -1) return;
+      var diff = now - at.getTime();
+      if (diff < -1000) return; // not due yet
+      state.settings.notified.push(k);
+      changed = true;
+      if (diff <= 12 * 3600 * 1000) fireReminder(ev, at);
+    });
+    if (changed) {
+      if (state.settings.notified.length > 250) state.settings.notified = state.settings.notified.slice(-250);
+      save();
+    }
+  }
+
+  function reminderWhen(ev) {
+    var d = parseYmd(ev.date);
+    var day = isToday(ev.date) ? "heute" : (ymd(addDays(new Date(), 1)) === ev.date ? "morgen" : WD_SHORT[d.getDay()] + ". " + d.getDate() + "." + (d.getMonth() + 1) + ".");
+    return ev.allDay ? day + " · ganztägig" : day + " · " + (ev.start || "");
+  }
+
+  function fireReminder(ev, at) {
+    dueBanners.push({ key: notifyKey(ev), title: ev.title, when: reminderWhen(ev) });
+    renderBanners();
+    if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
+
+    var title = "🔔 " + ev.title;
+    var opts = {
+      body: reminderWhen(ev),
+      tag: notifyKey(ev),
+      icon: "icons/icon-192.png",
+      badge: "icons/icon-192.png"
+    };
+    // Prefer the service worker (works in installed apps, incl. iOS standalone)
+    if ("serviceWorker" in navigator && navigator.serviceWorker.ready) {
+      navigator.serviceWorker.ready.then(function (reg) {
+        return reg.showNotification(title, opts);
+      }).catch(function () {
+        try { new Notification(title, opts); } catch (e) {}
+      });
+    } else {
+      try { new Notification(title, opts); } catch (e) {}
+    }
+  }
+
+  function renderBanners() {
+    var el = document.getElementById("banners");
+    el.innerHTML = "";
+    dueBanners.forEach(function (b, i) {
+      var d = document.createElement("div");
+      d.className = "banner";
+      d.innerHTML = '<span class="bell">🔔</span><div class="b-text"><strong></strong><span></span></div><button class="b-close" aria-label="Schließen">✕</button>';
+      d.querySelector(".b-text strong").textContent = b.title;
+      d.querySelector(".b-text span").textContent = b.when;
+      d.querySelector(".b-close").addEventListener("click", function () { dueBanners.splice(i, 1); renderBanners(); });
+      el.appendChild(d);
+    });
+  }
+
+  // ---------- rendering ----------
+  var viewRoot = document.getElementById("viewRoot");
+
+  function render() {
+    document.getElementById("viewMonth").setAttribute("aria-pressed", ui.view === "month");
+    document.getElementById("viewWeek").setAttribute("aria-pressed", ui.view === "week");
+    if (ui.view === "month") renderMonth(); else renderWeek();
+  }
+
+  function setTitle(txt, sub) {
+    document.getElementById("monthTitle").innerHTML = txt + (sub ? ' <span>' + sub + "</span>" : "");
+  }
+
+  function renderMonth() {
+    var c = ui.cursor;
+    setTitle(MONTHS[c.getMonth()], "" + c.getFullYear());
+
+    var gridStart = startOfWeek(c, state.settings.weekStart);
+    var wds = orderedWeekdays();
+    var html = '<div class="surface-card"><div class="weekdays">';
+    wds.forEach(function (w) {
+      html += '<div class="' + (w === 0 || w === 6 ? "we" : "") + '">' + WD_SHORT[w] + "</div>";
+    });
+    html += '</div><div class="grid" id="grid">';
+
+    for (var i = 0; i < 42; i++) {
+      var day = addDays(gridStart, i);
+      var ds = ymd(day);
+      var out = day.getMonth() !== c.getMonth();
+      var evs = eventsOn(ds);
+      var cls = "cell" + (out ? " out" : "") + (isToday(ds) ? " today" : "") + (ds === ui.selected ? " sel" : "");
+      html += '<button class="' + cls + '" data-date="' + ds + '">';
+      html += '<span class="num">' + day.getDate() + "</span>";
+      if (evs.length) {
+        html += '<span class="dots">';
+        evs.slice(0, 4).forEach(function (e) {
+          html += '<span class="dot" style="--d:' + catOf(e.cat).color + '"></span>';
+        });
+        html += "</span>";
+        if (evs.length > 4) html += '<span class="more">+' + (evs.length - 4) + "</span>";
+      }
+      html += "</button>";
+    }
+    html += "</div></div>";
+    html += '<div class="agenda" id="agenda"></div>';
+    viewRoot.innerHTML = html;
+
+    renderAgendaSingle();
+    attachSwipe(document.getElementById("grid"), function (dir) {
+      ui.cursor = addMonths(ui.cursor, dir);
+      renderMonth();
+    });
+
+    var grid = document.getElementById("grid");
+    grid.addEventListener("click", function (e) {
+      var b = e.target.closest(".cell");
+      if (!b) return;
+      ui.selected = b.getAttribute("data-date");
+      grid.querySelectorAll(".cell.sel").forEach(function (x) { x.classList.remove("sel"); });
+      b.classList.add("sel");
+      renderAgendaSingle();
+    });
+  }
+
+  function renderAgendaSingle() {
+    var host = document.getElementById("agenda");
+    if (!host) return;
+    var ds = ui.selected;
+    var d = parseYmd(ds);
+    var evs = eventsOn(ds);
+    var h = '<div class="agenda-day"><div class="agenda-head' + (isToday(ds) ? " is-today" : "") + '">';
+    h += "<h2>" + d.getDate() + ". " + MONTHS[d.getMonth()] + "</h2>";
+    h += '<span class="wd">' + WD_LONG[d.getDay()] + (isToday(ds) ? " · heute" : "") + "</span></div>";
+    if (!evs.length) h += '<div class="empty-day">Nichts geplant.</div>';
+    else evs.forEach(function (e) { h += evCard(e); });
+    h += "</div>";
+    host.innerHTML = h;
+    bindEvCards(host);
+  }
+
+  function renderWeek() {
+    var ws = ui.weekStart;
+    var end = addDays(ws, 6);
+    var sameMonth = ws.getMonth() === end.getMonth();
+    var t = sameMonth
+      ? ws.getDate() + ".–" + end.getDate() + ". " + MONTHS[ws.getMonth()]
+      : ws.getDate() + ". " + MONTHS[ws.getMonth()].slice(0, 3) + " – " + end.getDate() + ". " + MONTHS[end.getMonth()].slice(0, 3);
+    setTitle(t, ws.getFullYear() !== end.getFullYear() ? "" : "" + ws.getFullYear());
+
+    var h = '<div class="week-wrap"><div class="agenda" id="agenda" style="padding-top:6px">';
+    for (var i = 0; i < 7; i++) {
+      var day = addDays(ws, i);
+      var ds = ymd(day);
+      var evs = eventsOn(ds);
+      h += '<div class="agenda-day">';
+      h += '<div class="agenda-head' + (isToday(ds) ? " is-today" : "") + '" data-add="' + ds + '">';
+      h += "<h2>" + WD_LONG[day.getDay()] + "</h2>";
+      h += '<span class="wd">' + day.getDate() + ". " + MONTHS[day.getMonth()].slice(0, 3) + (isToday(ds) ? " · heute" : "") + "</span></div>";
+      if (!evs.length) h += '<div class="empty-day">Nichts geplant.</div>';
+      else evs.forEach(function (e) { h += evCard(e); });
+      h += "</div>";
+    }
+    h += "</div></div>";
+    viewRoot.innerHTML = h;
+
+    var host = document.getElementById("agenda");
+    bindEvCards(host);
+    host.querySelectorAll(".agenda-head[data-add]").forEach(function (hd) {
+      hd.style.cursor = "pointer";
+      hd.addEventListener("click", function () { openEditor(null, hd.getAttribute("data-add")); });
+    });
+    attachSwipe(host, function (dir) {
+      ui.weekStart = addDays(ui.weekStart, dir * 7);
+      renderWeek();
+    });
+  }
+
+  function evCard(e) {
+    var cat = catOf(e.cat);
+    var timeCol = e.allDay
+      ? '<div class="ev-time">ganz<small>tägig</small></div>'
+      : '<div class="ev-time">' + (e.start || "") + (e.end ? "<small>" + e.end + "</small>" : "") + "</div>";
+    var meta = '<span class="cat-tag" style="--d:' + cat.color + '">' + escapeHtml(cat.name) + "</span>";
+    if (e.reminder && e.reminder !== "none") meta += '<span class="rem">🔔 ' + escapeHtml(remindLabel(e.reminder)) + "</span>";
+    var note = e.note ? '<div class="ev-note">' + escapeHtml(e.note) + "</div>" : "";
+    return '<div class="ev" data-id="' + e.id + '" style="--d:' + cat.color + '">' +
+      '<span class="stripe"></span>' +
+      '<div class="ev-body"><div class="ev-title">' + escapeHtml(e.title) + "</div>" +
+      '<div class="ev-meta">' + meta + "</div>" + note + "</div>" +
+      timeCol + "</div>";
+  }
+
+  function bindEvCards(host) {
+    host.querySelectorAll(".ev").forEach(function (card) {
+      card.addEventListener("click", function () {
+        var id = card.getAttribute("data-id");
+        var ev = null;
+        for (var i = 0; i < state.events.length; i++) if (state.events[i].id === id) ev = state.events[i];
+        if (ev) openEditor(ev, ev.date);
+      });
+    });
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, function (m) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[m];
+    });
+  }
+
+  // ---------- swipe ----------
+  function attachSwipe(el, cb) {
+    if (!el) return;
+    var x0 = 0, y0 = 0, t0 = 0;
+    el.addEventListener("touchstart", function (e) {
+      var t = e.changedTouches[0]; x0 = t.clientX; y0 = t.clientY; t0 = Date.now();
+    }, { passive: true });
+    el.addEventListener("touchend", function (e) {
+      var t = e.changedTouches[0];
+      var dx = t.clientX - x0, dy = t.clientY - y0;
+      if (Date.now() - t0 < 600 && Math.abs(dx) > 55 && Math.abs(dx) > Math.abs(dy) * 1.7) {
+        cb(dx < 0 ? 1 : -1);
+      }
+    }, { passive: true });
+  }
+
+  // ---------- editor sheet ----------
+  var overlay = document.getElementById("overlay");
+  var sheet = document.getElementById("sheet");
+
+  function openSheet(buildFn) {
+    lastFocus = document.activeElement;
+    buildFn();
+    overlay.setAttribute("aria-hidden", "false");
+    overlay.classList.add("show");
+    document.body.style.overflow = "hidden";
+    var f = sheet.querySelector("input,select,textarea,button");
+    if (f && !("ontouchstart" in window)) setTimeout(function () { f.focus(); }, 60);
+  }
+  function closeSheet() {
+    overlay.classList.remove("show");
+    overlay.setAttribute("aria-hidden", "true");
+    document.body.style.overflow = "";
+    setTimeout(function () { sheet.innerHTML = ""; }, 260);
+    if (lastFocus && lastFocus.focus) lastFocus.focus();
+  }
+  overlay.addEventListener("click", function (e) { if (e.target === overlay) closeSheet(); });
+  document.addEventListener("keydown", function (e) { if (e.key === "Escape" && overlay.classList.contains("show")) closeSheet(); });
+
+  function openEditor(ev, dateStr) {
+    var isNew = !ev;
+    var model = ev ? JSON.parse(JSON.stringify(ev)) : {
+      id: uid(), title: "", date: dateStr || ui.selected, allDay: false,
+      start: "09:00", end: "10:00", cat: state.categories[0].id, note: "", reminder: "none"
+    };
+
+    openSheet(function () {
+      sheet.innerHTML =
+        '<div class="grabber"></div>' +
+        "<h3>" + (isNew ? "Neuer Eintrag" : "Eintrag bearbeiten") + "</h3>" +
+        '<div class="field title-field"><label>Titel</label><input type="text" id="f-title" placeholder="Worum geht es?" autocomplete="off"></div>' +
+        '<div class="field"><label>Datum</label><input type="date" id="f-date"></div>' +
+        '<div class="field"><div class="toggle-row"><label for="f-allday">Ganztägig</label>' +
+        '<span class="switch"><input type="checkbox" id="f-allday"><span class="track"></span></span></div></div>' +
+        '<div class="row2" id="time-row">' +
+        '<div class="field"><label>Von</label><input type="time" id="f-start"></div>' +
+        '<div class="field"><label>Bis</label><input type="time" id="f-end"></div></div>' +
+        '<div class="field"><label>Kategorie</label><div class="cat-picker" id="f-cats"></div></div>' +
+        '<div class="field"><label>Erinnerung</label><select id="f-remind"></select></div>' +
+        '<div class="field"><label>Notiz</label><textarea id="f-note" placeholder="Optional"></textarea></div>' +
+        '<div class="sheet-actions">' +
+        (isNew ? "" : '<button class="btn-danger-text" id="f-del">Löschen</button>') +
+        '<button class="btn btn-ghost" id="f-cancel">Abbrechen</button>' +
+        '<button class="btn btn-primary" id="f-save">Speichern</button></div>';
+
+      var $ = function (id) { return document.getElementById(id); };
+      $("f-title").value = model.title;
+      $("f-date").value = model.date;
+      $("f-allday").checked = !!model.allDay;
+      $("f-start").value = model.start || "09:00";
+      $("f-end").value = model.end || "10:00";
+      $("f-note").value = model.note || "";
+
+      var catsWrap = $("f-cats");
+      state.categories.forEach(function (cat) {
+        var b = document.createElement("button");
+        b.type = "button";
+        b.className = "cat-chip";
+        b.setAttribute("aria-pressed", cat.id === model.cat);
+        b.style.setProperty("--d", cat.color);
+        b.innerHTML = '<span class="sw"></span>' + escapeHtml(cat.name);
+        b.addEventListener("click", function () {
+          model.cat = cat.id;
+          catsWrap.querySelectorAll(".cat-chip").forEach(function (x) { x.setAttribute("aria-pressed", "false"); });
+          b.setAttribute("aria-pressed", "true");
+        });
+        catsWrap.appendChild(b);
+      });
+
+      function syncRemindOptions() {
+        var sel = $("f-remind");
+        var list = $("f-allday").checked ? REMIND_ALLDAY : REMIND_TIMED;
+        var cur = model.reminder;
+        sel.innerHTML = "";
+        var match = false;
+        list.forEach(function (o) {
+          var opt = document.createElement("option");
+          opt.value = o.v; opt.textContent = o.t;
+          if (o.v === cur) { opt.selected = true; match = true; }
+          sel.appendChild(opt);
+        });
+        if (!match) { sel.value = "none"; model.reminder = "none"; }
+      }
+      function syncAllDay() {
+        $("time-row").style.display = $("f-allday").checked ? "none" : "flex";
+        syncRemindOptions();
+      }
+      $("f-allday").addEventListener("change", syncAllDay);
+      $("f-remind").addEventListener("change", function () { model.reminder = this.value; });
+      syncAllDay();
+
+      $("f-cancel").addEventListener("click", closeSheet);
+      if ($("f-del")) $("f-del").addEventListener("click", function () {
+        state.events = state.events.filter(function (x) { return x.id !== model.id; });
+        save(); closeSheet(); render(); toast("Eintrag gelöscht");
+      });
+      $("f-save").addEventListener("click", function () {
+        var title = $("f-title").value.trim();
+        if (!title) { $("f-title").focus(); $("f-title").style.borderColor = "var(--danger)"; return; }
+        model.title = title;
+        model.date = $("f-date").value || model.date;
+        model.allDay = $("f-allday").checked;
+        model.start = model.allDay ? null : $("f-start").value || "09:00";
+        model.end = model.allDay ? null : ($("f-end").value || null);
+        model.note = $("f-note").value.trim();
+
+        state.settings.notified = state.settings.notified.filter(function (k) { return k.indexOf(model.id + "|") !== 0; });
+        var idx = -1;
+        for (var i = 0; i < state.events.length; i++) if (state.events[i].id === model.id) idx = i;
+        if (idx >= 0) state.events[idx] = model; else state.events.push(model);
+
+        ui.selected = model.date;
+        if (ui.view === "month") ui.cursor = startOfMonth(parseYmd(model.date));
+        else ui.weekStart = startOfWeek(parseYmd(model.date), state.settings.weekStart);
+
+        save(); closeSheet(); render(); checkReminders();
+        toast(isNew ? "Eintrag gespeichert" : "Änderungen gespeichert");
+      });
+    });
+  }
+
+  // ---------- settings ----------
+  function openSettings() {
+    openSheet(function () {
+      var notifState = (typeof Notification === "undefined") ? "unsupported" : Notification.permission;
+      sheet.innerHTML =
+        '<div class="grabber"></div><h3>Einstellungen</h3>' +
+
+        '<div class="set-group"><div class="gl">Erinnerungen</div>' +
+        '<div class="set-line"><div class="sl-main"><div class="t">Handy-Mitteilungen</div>' +
+        '<div class="d" id="notif-desc"></div></div>' +
+        '<button class="mini-btn" id="notif-btn"></button></div>' +
+        '<div class="hint" style="margin-top:12px">Nach dem Erlauben kommen die Erinnerungen als echte Mitteilung. ' +
+        'Am zuverlässigsten, solange die App in den letzten Stunden mindestens einmal offen war. ' +
+        '<b>Tipp:</b> Öffne den Kalender einmal am Tag kurz, dann werden alle fälligen Erinnerungen sicher zugestellt.</div></div>' +
+
+        '<div class="set-group"><div class="gl">Darstellung</div>' +
+        '<div class="set-line"><div class="sl-main"><div class="t">Farbschema</div></div>' +
+        '<div class="seg-mini" id="theme-seg">' +
+        '<button data-th="auto">Auto</button><button data-th="light">Hell</button><button data-th="dark">Dunkel</button></div></div>' +
+        '<div class="set-line"><div class="sl-main"><div class="t">Woche beginnt am</div></div>' +
+        '<div class="seg-mini" id="ws-seg"><button data-ws="1">Montag</button><button data-ws="0">Sonntag</button></div></div></div>' +
+
+        '<div class="set-group"><div class="gl">Kategorien</div><div id="cat-list"></div></div>' +
+
+        '<div class="set-group"><div class="gl">Sicherung</div>' +
+        '<div class="set-line"><div class="sl-main"><div class="t">Daten exportieren</div><div class="d">Alle Einträge als Datei sichern</div></div>' +
+        '<button class="mini-btn" id="exp-btn">Export</button></div>' +
+        '<div class="set-line"><div class="sl-main"><div class="t">Daten importieren</div><div class="d">Sicherung wiederherstellen</div></div>' +
+        '<button class="mini-btn" id="imp-btn">Import</button></div>' +
+        '<input type="file" id="imp-file" accept="application/json,.json" style="display:none"></div>' +
+
+        '<div class="sheet-actions"><button class="btn btn-primary" id="set-done">Fertig</button></div>';
+
+      var $ = function (id) { return document.getElementById(id); };
+
+      // notifications
+      function paintNotif() {
+        var s = (typeof Notification === "undefined") ? "unsupported" : Notification.permission;
+        var d = $("notif-desc"), b = $("notif-btn");
+        if (s === "granted") { d.textContent = "Aktiv – du bekommst Mitteilungen."; b.textContent = "Aktiv"; b.classList.add("on"); b.disabled = true; }
+        else if (s === "denied") { d.textContent = "Blockiert. In iOS: Einstellungen → Kalender → Mitteilungen erlauben."; b.textContent = "Blockiert"; }
+        else if (s === "unsupported") { d.textContent = "Hier nicht verfügbar – In-App-Erinnerungen sind aktiv."; b.textContent = "—"; b.disabled = true; }
+        else { d.textContent = "Noch nicht erlaubt."; b.textContent = "Erlauben"; }
+      }
+      paintNotif();
+      $("notif-btn").addEventListener("click", function () {
+        try {
+          var p = Notification.requestPermission();
+          if (p && p.then) p.then(function (res) {
+            state.settings.notifyEnabled = res === "granted"; save(); paintNotif();
+            if (res === "granted") toast("Mitteilungen aktiviert");
+          });
+        } catch (e) { toast("Nicht möglich in diesem Fenster"); }
+      });
+
+      // theme
+      var thSeg = $("theme-seg");
+      thSeg.querySelectorAll("button").forEach(function (btn) {
+        btn.setAttribute("aria-pressed", btn.getAttribute("data-th") === (state.settings.theme || "auto"));
+        btn.addEventListener("click", function () {
+          state.settings.theme = btn.getAttribute("data-th");
+          save(); applyTheme();
+          thSeg.querySelectorAll("button").forEach(function (x) { x.setAttribute("aria-pressed", x === btn); });
+        });
+      });
+
+      // week start
+      var wsSeg = $("ws-seg");
+      wsSeg.querySelectorAll("button").forEach(function (btn) {
+        btn.setAttribute("aria-pressed", +btn.getAttribute("data-ws") === state.settings.weekStart);
+        btn.addEventListener("click", function () {
+          state.settings.weekStart = +btn.getAttribute("data-ws");
+          ui.weekStart = startOfWeek(new Date(), state.settings.weekStart);
+          save();
+          wsSeg.querySelectorAll("button").forEach(function (x) { x.setAttribute("aria-pressed", x === btn); });
+          render();
+        });
+      });
+
+      // categories
+      var cl = $("cat-list");
+      state.categories.forEach(function (cat) {
+        var line = document.createElement("div");
+        line.className = "set-line";
+        line.innerHTML = '<span class="cat-dot" style="background:' + cat.color + '"></span>' +
+          '<div class="sl-main"></div><input type="text" maxlength="18" value="">';
+        var inp = line.querySelector("input");
+        inp.value = cat.name;
+        inp.addEventListener("change", function () {
+          cat.name = inp.value.trim() || cat.name; inp.value = cat.name; save();
+        });
+        cl.appendChild(line);
+      });
+
+      // export / import
+      $("exp-btn").addEventListener("click", exportData);
+      $("imp-btn").addEventListener("click", function () { $("imp-file").click(); });
+      $("imp-file").addEventListener("change", function (e) {
+        var file = e.target.files[0]; if (!file) return;
+        var r = new FileReader();
+        r.onload = function () {
+          try {
+            var p = JSON.parse(r.result);
+            if (!p.events) throw 0;
+            state.events = p.events;
+            if (p.categories && p.categories.length) state.categories = p.categories;
+            if (p.settings) state.settings = Object.assign(state.settings, p.settings);
+            state.seeded = true;
+            save(); applyTheme(); closeSheet(); render();
+            toast("Sicherung importiert (" + state.events.length + " Einträge)");
+          } catch (err) { toast("Datei konnte nicht gelesen werden"); }
+        };
+        r.readAsText(file);
+      });
+
+      $("set-done").addEventListener("click", function () { closeSheet(); render(); });
+    });
+  }
+
+  function exportData() {
+    var payload = JSON.stringify({ app: "kalenderblatt", version: 1, exported: new Date().toISOString(), events: state.events, categories: state.categories, settings: state.settings }, null, 2);
+    var fname = "kalender-sicherung-" + ymd(new Date()) + ".json";
+
+    function fallbackCopy() {
+      try {
+        navigator.clipboard.writeText(payload).then(function () { toast("In Zwischenablage kopiert"); }, showText);
+      } catch (e) { showText(); }
+    }
+    function showText() {
+      openSheet(function () {
+        sheet.innerHTML = '<div class="grabber"></div><h3>Sicherung kopieren</h3>' +
+          '<p style="color:var(--text-muted);font-size:13px;margin-bottom:10px">Markiere den Text und kopiere ihn an einen sicheren Ort.</p>' +
+          '<textarea style="width:100%;min-height:200px;background:var(--surface-2);border:1px solid var(--line);border-radius:9px;padding:11px;font-size:12px">' + escapeHtml(payload) + "</textarea>" +
+          '<div class="sheet-actions"><button class="btn btn-primary" id="x-close">Fertig</button></div>';
+        document.getElementById("x-close").addEventListener("click", closeSheet);
+        sheet.querySelector("textarea").select();
+      });
+    }
+
+    // iOS-Apps im Standalone-Modus können keine Dateien herunterladen -> Text zeigen
+    var iosStandalone = ("standalone" in navigator) && navigator.standalone;
+    if (iosStandalone) { showText(); return; }
+
+    try {
+      var blob = new Blob([payload], { type: "application/json" });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement("a");
+      a.href = url;
+      a.download = fname;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(function () { URL.revokeObjectURL(url); }, 2000);
+      toast("Sicherung gespeichert");
+    } catch (e) {
+      fallbackCopy();
+    }
+  }
+
+  // ---------- theme ----------
+  function applyTheme() {
+    var t = state.settings.theme || "auto";
+    if (t === "auto") document.documentElement.removeAttribute("data-theme");
+    else document.documentElement.setAttribute("data-theme", t);
+  }
+
+  // ---------- toast ----------
+  var toastEl = document.getElementById("toast"), toastT;
+  function toast(msg) {
+    toastEl.textContent = msg;
+    toastEl.classList.add("show");
+    clearTimeout(toastT);
+    toastT = setTimeout(function () { toastEl.classList.remove("show"); }, 2400);
+  }
+
+  // ---------- wire up ----------
+  document.getElementById("prevBtn").addEventListener("click", function () {
+    if (ui.view === "month") { ui.cursor = addMonths(ui.cursor, -1); renderMonth(); }
+    else { ui.weekStart = addDays(ui.weekStart, -7); renderWeek(); }
+  });
+  document.getElementById("nextBtn").addEventListener("click", function () {
+    if (ui.view === "month") { ui.cursor = addMonths(ui.cursor, 1); renderMonth(); }
+    else { ui.weekStart = addDays(ui.weekStart, 7); renderWeek(); }
+  });
+  document.getElementById("todayBtn").addEventListener("click", function () {
+    var now = new Date();
+    ui.selected = ymd(now);
+    ui.cursor = startOfMonth(now);
+    ui.weekStart = startOfWeek(now, state.settings.weekStart);
+    render();
+  });
+  document.getElementById("viewMonth").addEventListener("click", function () { ui.view = "month"; render(); });
+  document.getElementById("viewWeek").addEventListener("click", function () { ui.view = "week"; render(); });
+  document.getElementById("fab").addEventListener("click", function () {
+    var base = ui.view === "week" ? ymd(ui.weekStart) : ui.selected;
+    if (ui.view === "month") base = ui.selected;
+    openEditor(null, base);
+  });
+  document.getElementById("settingsBtn").addEventListener("click", openSettings);
+
+  document.addEventListener("keydown", function (e) {
+    if (overlay.classList.contains("show")) return;
+    if (e.key === "ArrowLeft") document.getElementById("prevBtn").click();
+    if (e.key === "ArrowRight") document.getElementById("nextBtn").click();
+  });
+
+  document.addEventListener("visibilitychange", function () {
+    if (!document.hidden) { checkReminders(); }
+  });
+
+  // ---------- boot ----------
+  applyTheme();
+  render();
+  renderBanners();
+  checkReminders();
+  setInterval(checkReminders, 20000);
+  window.addEventListener("focus", checkReminders);
+
+  // ---------- service worker (offline + notifications) ----------
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", function () {
+      navigator.serviceWorker.register("./service-worker.js").catch(function () {});
+    });
+  }
+})();
+</script>
+</body>
+</html>
