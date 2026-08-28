@@ -2,7 +2,7 @@
    Aufgaben: App offline verfügbar machen + Mitteilungen anzeigen/anklicken.
    Bei jeder inhaltlichen Änderung an index.html die CACHE-Version hochzählen. */
 
-const CACHE = "kalenderblatt-v2";
+const CACHE = "kalenderblatt-v3";
 
 const APP_SHELL = [
   "./",

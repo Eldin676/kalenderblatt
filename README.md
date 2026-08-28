@@ -66,6 +66,28 @@ Danach die App einmal schließen und neu öffnen.
 
 ---
 
+## Termin per Link / Code einfügen
+
+Statt jeden Termin von Hand einzutippen, kann ein Termin als **Link** oder
+**Code** übergeben werden. Die App zeigt dann eine Vorschau und trägt ihn nach
+einem Tipp auf „Hinzufügen" ein (bestehende Termine bleiben erhalten).
+
+- **Link antippen:** `https://eldin676.github.io/kalenderblatt/#add=KB1.…`
+  Öffnet die App (oder Safari) mit der Bestätigungs-Abfrage.
+- **Falls der Link in Safari statt in der installierten App landet:** den Link
+  oder den `KB1.…`-Code kopieren und in der App unter
+  **Zahnrad → Termin per Link** einfügen.
+
+### Link erzeugen (am Computer)
+
+```
+node tools/make-event-link.mjs '{"title":"Paddle mit Freunden","date":"2026-08-30","start":"14:00","end":"16:00","cat":"Sport","reminder":"1h"}'
+```
+
+Auch mehrere Termine auf einmal: eine `.json`-Datei mit einem Array übergeben.
+Feld-Referenz steht oben in `tools/make-event-link.mjs`. Die Nutzdaten stehen
+nur im `#…`-Teil der URL und werden dadurch nie an einen Server übertragen.
+
 ## Datensicherung
 
 Zahnrad → **Sicherung → Daten exportieren** speichert alle Termine als Datei.

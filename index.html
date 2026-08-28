@@ -576,6 +576,30 @@
   .week-wrap.animate { animation: viewIn 0.34s cubic-bezier(0.22, 0.9, 0.25, 1); }
   .week-wrap.animate.next { animation-name: slideInNext; }
   .week-wrap.animate.prev { animation-name: slideInPrev; }
+
+  /* ============ QUICK-ADD / IMPORT PREVIEW ============ */
+  .imp-list { display: flex; flex-direction: column; gap: 9px; margin-bottom: 4px; }
+  .imp-card {
+    display: flex; gap: 11px;
+    padding: 13px;
+    border-radius: var(--r-md);
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    animation: evIn 0.34s cubic-bezier(0.22, 0.9, 0.25, 1) backwards;
+  }
+  .imp-card .stripe { width: 4px; align-self: stretch; border-radius: 4px; background: var(--d); flex: none; min-height: 30px; }
+  .imp-title { font-weight: 600; font-size: 15px; }
+  .imp-meta { color: var(--text-muted); font-size: 12.5px; margin-top: 4px; overflow-wrap: anywhere; }
+  .imp-meta .cat-tag { font-size: 11px; font-weight: 700; color: var(--d); }
+  .qa-in {
+    width: 100%; min-height: 68px;
+    background: var(--surface-2); border: 1px solid var(--line);
+    border-radius: var(--r-sm); padding: 10px 12px;
+    font-size: 13px; line-height: 1.4; resize: vertical;
+    word-break: break-all;
+  }
+  .qa-in:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+  .set-hint { color: var(--text-faint); font-size: 12.5px; margin: 2px 0 9px; line-height: 1.5; }
 </style>
 </head>
 <body>
@@ -1005,7 +1029,9 @@
   var overlay = document.getElementById("overlay");
   var sheet = document.getElementById("sheet");
 
+  var sheetClearT = null;
   function openSheet(buildFn) {
+    if (sheetClearT) { clearTimeout(sheetClearT); sheetClearT = null; }
     lastFocus = document.activeElement;
     buildFn();
     overlay.setAttribute("aria-hidden", "false");
@@ -1021,7 +1047,8 @@
     overlay.setAttribute("aria-hidden", "true");
     document.body.classList.remove("sheet-open");
     document.body.style.overflow = "";
-    setTimeout(function () { sheet.innerHTML = ""; }, 260);
+    if (sheetClearT) clearTimeout(sheetClearT);
+    sheetClearT = setTimeout(function () { sheet.innerHTML = ""; sheetClearT = null; }, 260);
     if (lastFocus && lastFocus.focus) lastFocus.focus();
   }
   overlay.addEventListener("click", function (e) { if (e.target === overlay) closeSheet(); });
@@ -1153,6 +1180,12 @@
 
         '<div class="set-group"><div class="gl">Kategorien</div><div id="cat-list"></div></div>' +
 
+        '<div class="set-group"><div class="gl">Termin per Link</div>' +
+        '<p class="set-hint">Einen Link oder Code (z. B. aus dem Chat) hier einfügen – der Termin wird nach einer Bestätigung eingetragen. Falls beim Antippen des Links die App nicht direkt aufgeht, kopiere ihn hier herein.</p>' +
+        '<textarea id="qa-in" class="qa-in" rows="2" placeholder="https://…/#add=KB1.…  oder  KB1.…" autocomplete="off" autocapitalize="off" spellcheck="false"></textarea>' +
+        '<div class="set-line" style="border:none;padding:8px 0 0"><div class="sl-main"></div>' +
+        '<button class="mini-btn" id="qa-btn">Termin prüfen</button></div></div>' +
+
         '<div class="set-group"><div class="gl">Sicherung</div>' +
         '<div class="set-line"><div class="sl-main"><div class="t">Daten exportieren</div><div class="d">Alle Einträge als Datei sichern</div></div>' +
         '<button class="mini-btn" id="exp-btn">Export</button></div>' +
@@ -1223,6 +1256,15 @@
         cl.appendChild(line);
       });
 
+      // Schnell-Eintrag per Link / Code
+      $("qa-btn").addEventListener("click", function () {
+        var el = $("qa-in");
+        var v = el.value.trim();
+        if (!v) { el.focus(); return; }
+        el.value = "";
+        if (!tryImportRaw(v, true)) el.value = v; // bei Fehler Eingabe zurückgeben
+      });
+
       // export / import
       $("exp-btn").addEventListener("click", exportData);
       $("imp-btn").addEventListener("click", function () { $("imp-file").click(); });
@@ -1288,6 +1330,129 @@
     }
   }
 
+  // ---------- Schnell-Eintrag per Link / Code ----------
+  var TIMED_REM = { none: 1, start: 1, "10m": 1, "30m": 1, "1h": 1, "1d": 1 };
+  var ALLDAY_REM = { none: 1, morning: 1, eve_before: 1 };
+
+  function b64urlToString(s) {
+    s = String(s).replace(/-/g, "+").replace(/_/g, "/");
+    while (s.length % 4) s += "=";
+    var bin = atob(s);
+    var bytes = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return new TextDecoder().decode(bytes);
+  }
+
+  function resolveCat(v) {
+    var last = state.categories[state.categories.length - 1].id;
+    if (v == null || v === "") return last;
+    v = String(v);
+    for (var i = 0; i < state.categories.length; i++) if (state.categories[i].id === v) return v;
+    var low = v.toLowerCase();
+    for (var j = 0; j < state.categories.length; j++) if (state.categories[j].name.toLowerCase() === low) return state.categories[j].id;
+    return last;
+  }
+
+  function normalizeIncoming(o) {
+    if (!o || typeof o !== "object") return null;
+    var g = function (a, b) { return o[a] != null ? o[a] : o[b]; };
+    var title = String(g("title", "t") != null ? g("title", "t") : "").trim();
+    var date = String(g("date", "d") != null ? g("date", "d") : "").trim();
+    if (!title || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
+    var dt = parseYmd(date);
+    if (isNaN(dt.getTime()) || ymd(dt) !== date) return null;
+    var allDay = !!(g("allDay", "ad"));
+    var hhmm = function (x) {
+      if (!x) return null;
+      var m = String(x).match(/^(\d{1,2}):(\d{2})$/);
+      if (!m || +m[1] > 23 || +m[2] > 59) return null;
+      return (m[1].length < 2 ? "0" + m[1] : m[1]) + ":" + m[2];
+    };
+    var start = allDay ? null : (hhmm(g("start", "s")) || "09:00");
+    var end = allDay ? null : hhmm(g("end", "e"));
+    var reminder = String(g("reminder", "r") != null ? g("reminder", "r") : "none");
+    reminder = (allDay ? ALLDAY_REM : TIMED_REM)[reminder] ? reminder : "none";
+    var note = String(g("note", "n") != null ? g("note", "n") : "").slice(0, 2000);
+    return { title: title, date: date, allDay: allDay, start: start, end: end, cat: resolveCat(g("cat", "c")), note: note, reminder: reminder };
+  }
+
+  function decodePayload(raw) {
+    if (!raw) return null;
+    raw = String(raw).trim();
+    var m = raw.match(/[#?&]add=([^&\s]+)/);
+    if (m) { try { raw = decodeURIComponent(m[1]); } catch (e) { raw = m[1]; } }
+    raw = raw.replace(/^KB1[.:]?/i, "").trim();
+    var json;
+    try { json = b64urlToString(raw); } catch (e) { return null; }
+    var data;
+    try { data = JSON.parse(json); } catch (e) { return null; }
+    var arr = Array.isArray(data) ? data : (data && Array.isArray(data.events) ? data.events : [data]);
+    var out = [];
+    for (var i = 0; i < arr.length && i < 50; i++) { var n = normalizeIncoming(arr[i]); if (n) out.push(n); }
+    return out.length ? out : null;
+  }
+
+  function incomingWhen(ev) {
+    var d = parseYmd(ev.date);
+    var base = WD_SHORT[d.getDay()] + ". " + d.getDate() + ". " + MONTHS[d.getMonth()] + " " + d.getFullYear();
+    if (ev.allDay) return base + " · ganztägig";
+    return base + " · " + ev.start + (ev.end ? "–" + ev.end : "");
+  }
+
+  function promptImport(list) {
+    openSheet(function () {
+      var multi = list.length > 1;
+      var rows = list.map(function (ev, i) {
+        var cat = catOf(ev.cat);
+        var dup = state.events.some(function (x) {
+          return x.title === ev.title && x.date === ev.date && (x.start || "") === (ev.start || "");
+        });
+        return '<div class="imp-card" style="--d:' + cat.color + ';animation-delay:' + (i * 40) + 'ms">' +
+          '<span class="stripe"></span><div>' +
+          '<div class="imp-title">' + escapeHtml(ev.title) + "</div>" +
+          '<div class="imp-meta">' + escapeHtml(incomingWhen(ev)) + "</div>" +
+          '<div class="imp-meta"><span class="cat-tag" style="--d:' + cat.color + '">' + escapeHtml(cat.name) + "</span>" +
+          (ev.reminder !== "none" ? " · 🔔 " + escapeHtml(remindLabel(ev.reminder)) : "") +
+          (dup ? ' · <span style="color:var(--danger)">ähnlicher Eintrag vorhanden</span>' : "") + "</div>" +
+          (ev.note ? '<div class="imp-meta">' + escapeHtml(ev.note) + "</div>" : "") +
+          "</div></div>";
+      }).join("");
+
+      sheet.innerHTML = '<div class="grabber"></div>' +
+        "<h3>" + (multi ? list.length + " Termine hinzufügen?" : "Termin hinzufügen?") + "</h3>" +
+        '<div class="imp-list">' + rows + "</div>" +
+        '<div class="sheet-actions">' +
+        '<button class="btn btn-ghost" id="imp-cancel">Abbrechen</button>' +
+        '<button class="btn btn-primary" id="imp-ok">' + (multi ? "Alle hinzufügen" : "Hinzufügen") + "</button></div>";
+
+      document.getElementById("imp-cancel").addEventListener("click", closeSheet);
+      document.getElementById("imp-ok").addEventListener("click", function () {
+        list.forEach(function (ev) { ev.id = uid(); state.events.push(ev); });
+        var first = list[0];
+        ui.selected = first.date;
+        ui.cursor = startOfMonth(parseYmd(first.date));
+        ui.weekStart = startOfWeek(parseYmd(first.date), state.settings.weekStart);
+        save(); closeSheet(); render(); checkReminders();
+        toast(multi ? list.length + " Termine hinzugefügt" : "Termin hinzugefügt");
+      });
+    });
+  }
+
+  function tryImportRaw(raw, toastOnFail) {
+    var list = decodePayload(raw);
+    if (!list) { if (toastOnFail) toast("Link oder Code nicht erkannt"); return false; }
+    promptImport(list);
+    return true;
+  }
+
+  function checkInbox() {
+    var h = location.hash || "";
+    if (h.indexOf("add=") === -1) return;
+    var ok = tryImportRaw(h);
+    try { history.replaceState(null, "", location.pathname + location.search); } catch (e) {}
+    if (!ok) toast("Der Link enthält keinen gültigen Termin");
+  }
+
   // ---------- theme ----------
   function applyTheme() {
     var t = state.settings.theme || "auto";
@@ -1348,8 +1513,10 @@
   render();
   renderBanners();
   checkReminders();
+  checkInbox();
   setInterval(checkReminders, 20000);
   window.addEventListener("focus", checkReminders);
+  window.addEventListener("hashchange", checkInbox);
 
   // ---------- service worker (offline + notifications) ----------
   if ("serviceWorker" in navigator) {
