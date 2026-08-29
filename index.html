@@ -793,7 +793,11 @@
       if (diff < -1000) return; // not due yet
       state.settings.notified.push(k);
       changed = true;
-      if (diff <= 12 * 3600 * 1000) fireReminder(ev, at);
+      // Systemmitteilung aus der App nur, wenn die Erinnerung gerade frisch
+      // fällig wurde (App ist offen). Ältere hat der Push-Dienst erledigt –
+      // die zeigen wir nur als Banner in der App.
+      var fresh = diff <= 3 * 60 * 1000;
+      if (diff <= 12 * 3600 * 1000) fireReminder(ev, at, fresh);
     });
     if (changed) {
       if (state.settings.notified.length > 250) state.settings.notified = state.settings.notified.slice(-250);
@@ -807,9 +811,12 @@
     return ev.allDay ? day + " · ganztägig" : day + " · " + (ev.start || "");
   }
 
-  function fireReminder(ev, at) {
+  function fireReminder(ev, at, showSystem) {
     dueBanners.push({ key: notifyKey(ev), title: ev.title, when: reminderWhen(ev) });
     renderBanners();
+    if (showSystem === false) return;
+    // Wenn der Push-Dienst aktiv ist, macht der die Systemmitteilungen.
+    if (pushActive()) return;
     if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
 
     var title = "🔔 " + ev.title;
@@ -1552,13 +1559,33 @@
         });
       })
       .then(function (res) {
-        state.settings.pushOk = res && res.ok ? Date.now() : state.settings.pushOk || 0;
+        if (res && res.ok) {
+          state.settings.pushOk = Date.now();
+          return res.json().catch(function () { return null; });
+        }
+        return null;
+      })
+      .then(function (data) {
+        // Der Dienst meldet zurück, welche Erinnerungen er schon als Push
+        // verschickt hat -> nicht nochmal in-App zeigen.
+        if (data && Array.isArray(data.sent) && data.sent.length) {
+          var have = {};
+          state.settings.notified.forEach(function (k) { have[k] = 1; });
+          data.sent.forEach(function (k) { if (!have[k]) state.settings.notified.push(k); });
+          if (state.settings.notified.length > 250) state.settings.notified = state.settings.notified.slice(-250);
+        }
         try { save(); } catch (e) {}
       })
       .catch(function (e) {
         if (window.console) console.warn("Push-Sync fehlgeschlagen:", e);
       })
       .then(function () { pushBusy = false; });
+  }
+
+  function pushActive() {
+    return "PushManager" in window &&
+      typeof Notification !== "undefined" && Notification.permission === "granted" &&
+      state.settings.pushOk && (Date.now() - state.settings.pushOk) < 2 * 864e5;
   }
 
   // ---------- theme ----------
