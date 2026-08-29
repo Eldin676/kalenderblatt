@@ -2,7 +2,7 @@
    Aufgaben: App offline verfügbar machen + Mitteilungen anzeigen/anklicken.
    Bei jeder inhaltlichen Änderung an index.html die CACHE-Version hochzählen. */
 
-const CACHE = "kalenderblatt-v3";
+const CACHE = "kalenderblatt-v4";
 
 const APP_SHELL = [
   "./",
@@ -81,6 +81,25 @@ self.addEventListener("fetch", (event) => {
         .catch(() => caches.match(req))
     );
   }
+});
+
+// Push vom Kalenderblatt-Dienst -> Mitteilung anzeigen (läuft auch bei geschlossener App)
+self.addEventListener("push", (event) => {
+  let d = {};
+  try {
+    d = event.data ? event.data.json() : {};
+  } catch (e) {
+    d = { title: "Erinnerung", body: event.data ? event.data.text() : "" };
+  }
+  event.waitUntil(
+    self.registration.showNotification(d.title || "🔔 Erinnerung", {
+      body: d.body || "",
+      tag: d.key || d.tag || "kb-reminder",
+      icon: "./icons/icon-192.png",
+      badge: "./icons/icon-192.png",
+      data: { url: "./" },
+    })
+  );
 });
 
 // Tippt der Nutzer auf die Mitteilung -> App in den Vordergrund holen

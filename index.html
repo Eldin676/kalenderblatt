@@ -647,6 +647,12 @@
   "use strict";
 
   var STORE_KEY = "kalenderblatt.v1";
+
+  // Push-Dienst (Cloudflare Worker) – schickt Erinnerungen auch bei geschlossener App
+  var PUSH_URL = "https://kalenderblatt-push.kalenderblatt-push.workers.dev";
+  var PUSH_TOKEN = "HU3M7a8h0iRd158nEUW5kVfaYwNLX2GQ";
+  var VAPID_PUBLIC = "BHJmrgQ8BoAyMdCQf4YVfSAv-nq9V2AouUeb1oH4t0YIWp_3yaaUnMEWyJY9MPhM8rzevNF3ae7JL3rHN7MFJSU";
+
   var WD_SHORT = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"];
   var WD_LONG = ["Sonntag", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag"];
   var MONTHS = ["Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November", "Dezember"];
@@ -1129,7 +1135,7 @@
       $("f-cancel").addEventListener("click", closeSheet);
       if ($("f-del")) $("f-del").addEventListener("click", function () {
         state.events = state.events.filter(function (x) { return x.id !== model.id; });
-        save(); closeSheet(); render(); toast("Eintrag gelöscht");
+        save(); closeSheet(); render(); syncPushSoon(); toast("Eintrag gelöscht");
       });
       $("f-save").addEventListener("click", function () {
         var title = $("f-title").value.trim();
@@ -1150,7 +1156,7 @@
         if (ui.view === "month") ui.cursor = startOfMonth(parseYmd(model.date));
         else ui.weekStart = startOfWeek(parseYmd(model.date), state.settings.weekStart);
 
-        save(); closeSheet(); render(); checkReminders();
+        save(); closeSheet(); render(); checkReminders(); syncPushSoon();
         toast(isNew ? "Eintrag gespeichert" : "Änderungen gespeichert");
       });
     });
@@ -1167,9 +1173,11 @@
         '<div class="set-line"><div class="sl-main"><div class="t">Handy-Mitteilungen</div>' +
         '<div class="d" id="notif-desc"></div></div>' +
         '<button class="mini-btn" id="notif-btn"></button></div>' +
-        '<div class="hint" style="margin-top:12px">Nach dem Erlauben kommen die Erinnerungen als echte Mitteilung. ' +
-        'Am zuverlässigsten, solange die App in den letzten Stunden mindestens einmal offen war. ' +
-        '<b>Tipp:</b> Öffne den Kalender einmal am Tag kurz, dann werden alle fälligen Erinnerungen sicher zugestellt.</div></div>' +
+        '<div class="set-line"><div class="sl-main"><div class="t">Cloud-Erinnerungen</div>' +
+        '<div class="d" id="push-desc">–</div></div></div>' +
+        '<div class="hint" style="margin-top:12px">Nach dem Erlauben kommen die Erinnerungen als echte Mitteilung – ' +
+        '<b>auch wenn die App komplett geschlossen ist.</b> Die Zustellung kann sich um 1–2 Minuten verzögern. ' +
+        'Wenn du die App sehr lange gar nicht öffnest, kann iOS die Verbindung kappen – dann genügt einmal Öffnen.</div></div>' +
 
         '<div class="set-group"><div class="gl">Darstellung</div>' +
         '<div class="set-line"><div class="sl-main"><div class="t">Farbschema</div></div>' +
@@ -1207,12 +1215,31 @@
         else { d.textContent = "Noch nicht erlaubt."; b.textContent = "Erlauben"; }
       }
       paintNotif();
+
+      // Push-Status
+      (function paintPush() {
+        var d = $("push-desc");
+        if (!d) return;
+        if (typeof Notification === "undefined" || Notification.permission !== "granted") {
+          d.textContent = "Aktiv, sobald du Mitteilungen erlaubst.";
+        } else if (!("PushManager" in window)) {
+          d.textContent = "Auf diesem Gerät nicht verfügbar.";
+        } else if (state.settings.pushOk) {
+          var mins = Math.round((Date.now() - state.settings.pushOk) / 60000);
+          d.textContent = "Verbunden" + (mins < 2 ? " (gerade eben)" : mins < 90 ? " (vor " + mins + " Min)" : "") + ".";
+        } else {
+          d.textContent = "Wird eingerichtet …";
+          syncPushSoon();
+          setTimeout(paintPush, 3000);
+        }
+      })();
+
       $("notif-btn").addEventListener("click", function () {
         try {
           var p = Notification.requestPermission();
           if (p && p.then) p.then(function (res) {
             state.settings.notifyEnabled = res === "granted"; save(); paintNotif();
-            if (res === "granted") toast("Mitteilungen aktiviert");
+            if (res === "granted") { syncPushSoon(); toast("Mitteilungen aktiviert"); }
           });
         } catch (e) { toast("Nicht möglich in diesem Fenster"); }
       });
@@ -1275,11 +1302,13 @@
           try {
             var p = JSON.parse(r.result);
             if (!p.events) throw 0;
+            var keepClientId = state.settings.pushClientId;
             state.events = p.events;
             if (p.categories && p.categories.length) state.categories = p.categories;
             if (p.settings) state.settings = Object.assign(state.settings, p.settings);
+            if (keepClientId) state.settings.pushClientId = keepClientId;
             state.seeded = true;
-            save(); applyTheme(); closeSheet(); render();
+            save(); applyTheme(); closeSheet(); render(); syncPushSoon();
             toast("Sicherung importiert (" + state.events.length + " Einträge)");
           } catch (err) { toast("Datei konnte nicht gelesen werden"); }
         };
@@ -1432,7 +1461,7 @@
         ui.selected = first.date;
         ui.cursor = startOfMonth(parseYmd(first.date));
         ui.weekStart = startOfWeek(parseYmd(first.date), state.settings.weekStart);
-        save(); closeSheet(); render(); checkReminders();
+        save(); closeSheet(); render(); checkReminders(); syncPushSoon();
         toast(multi ? list.length + " Termine hinzugefügt" : "Termin hinzugefügt");
       });
     });
@@ -1451,6 +1480,85 @@
     var ok = tryImportRaw(h);
     try { history.replaceState(null, "", location.pathname + location.search); } catch (e) {}
     if (!ok) toast("Der Link enthält keinen gültigen Termin");
+  }
+
+  // ---------- Push-Sync (Cloud-Erinnerungen) ----------
+  function urlB64ToUint8Array(base64String) {
+    var padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+    var base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+    var raw = atob(base64);
+    var arr = new Uint8Array(raw.length);
+    for (var i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
+    return arr;
+  }
+
+  function pushClientId() {
+    if (!state.settings.pushClientId) {
+      state.settings.pushClientId = (uid() + uid() + uid()).replace(/[^a-z0-9]/gi, "").slice(0, 40);
+      save();
+    }
+    return state.settings.pushClientId;
+  }
+
+  function buildPushReminders() {
+    var now = Date.now();
+    var horizon = now + 45 * 864e5;
+    var out = [];
+    state.events.forEach(function (ev) {
+      if (!ev.reminder || ev.reminder === "none") return;
+      var at = remindAt(ev);
+      if (!at) return;
+      var t = at.getTime();
+      if (t < now - 3600e3 || t > horizon) return;
+      out.push({ key: notifyKey(ev), at: t, title: "🔔 " + ev.title, body: reminderWhen(ev) });
+    });
+    return out;
+  }
+
+  var pushSyncT = null, pushLastAt = 0, pushBusy = false;
+
+  function syncPushSoon() {
+    clearTimeout(pushSyncT);
+    var wait = Math.max(1200, 20000 - (Date.now() - pushLastAt));
+    pushSyncT = setTimeout(syncPushNow, wait);
+  }
+
+  function syncPushNow() {
+    if (pushBusy) { syncPushSoon(); return; }
+    if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
+    if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
+    pushBusy = true;
+    pushLastAt = Date.now();
+
+    navigator.serviceWorker.ready
+      .then(function (reg) {
+        return reg.pushManager.getSubscription().then(function (sub) {
+          if (sub) return sub;
+          return reg.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: urlB64ToUint8Array(VAPID_PUBLIC)
+          });
+        });
+      })
+      .then(function (sub) {
+        return fetch(PUSH_URL + "/sync", {
+          method: "POST",
+          headers: { "content-type": "application/json", authorization: "Bearer " + PUSH_TOKEN },
+          body: JSON.stringify({
+            clientId: pushClientId(),
+            subscription: sub.toJSON(),
+            reminders: buildPushReminders()
+          })
+        });
+      })
+      .then(function (res) {
+        state.settings.pushOk = res && res.ok ? Date.now() : state.settings.pushOk || 0;
+        try { save(); } catch (e) {}
+      })
+      .catch(function (e) {
+        if (window.console) console.warn("Push-Sync fehlgeschlagen:", e);
+      })
+      .then(function () { pushBusy = false; });
   }
 
   // ---------- theme ----------
@@ -1505,7 +1613,7 @@
   });
 
   document.addEventListener("visibilitychange", function () {
-    if (!document.hidden) { checkReminders(); }
+    if (!document.hidden) { checkReminders(); syncPushSoon(); }
   });
 
   // ---------- boot ----------
@@ -1521,7 +1629,9 @@
   // ---------- service worker (offline + notifications) ----------
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", function () {
-      navigator.serviceWorker.register("./service-worker.js").catch(function () {});
+      navigator.serviceWorker.register("./service-worker.js").then(function () {
+        syncPushSoon();
+      }).catch(function () {});
     });
   }
 })();
